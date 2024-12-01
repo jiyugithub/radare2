@@ -1,0 +1,56 @@
+name: Build R2PipeJNI
+
+on:
+  push:
+    branches:
+      - main  # 或者你想要触发构建的其他分支
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        architecture: [arm, arm64, x86, x86_64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git cmake
+
+      - name: Build Radare2 for ${{ matrix.architecture }}
+        run: |
+          # Clone Radare2 repository
+          git clone --recurse-submodules https://github.com/radareorg/radare2.git
+          cd radare2
+          # Set up the environment for the specific architecture
+          if [ "${{ matrix.architecture }}" == "arm" ]; then
+            export ARCH=arm
+          elif [ "${{ matrix.architecture }}" == "arm64" ]; then
+            export ARCH=aarch64
+          elif [ "${{ matrix.architecture }}" == "x86" ]; then
+            export ARCH=i386
+          elif [ "${{ matrix.architecture }}" == "x86_64" ]; then
+            export ARCH=x86_64
+          fi
+          # Build R2PipeJNI
+          ./configure --enable-r2pipe
+          make r2pipejni
+
+      - name: Package R2PipeJNI
+        run: |
+          # Create a directory for the output
+          mkdir -p output/${{ matrix.architecture }}
+          # Move the built R2PipeJNI to the output directory
+          cp -r radare2/libr/r2pipejni.so output/${{ matrix.architecture }}/
+
+      - name: Upload R2PipeJNI
+        uses: actions/upload-artifact@v2
+        with:
+          name: R2PipeJNI-${{ matrix.architecture }}
+          path: output/${{ matrix.architecture }}/
